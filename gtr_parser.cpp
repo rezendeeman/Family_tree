@@ -2,27 +2,31 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <vector>
+#include <string>
+
 
 using namespace std;
 
-// Функція для парсингу файлу формату .gtr
-void parseGTR(ifstream& infile, vector<Person>& people, int level = 1) {
-    string line;
+void parseGTR(const vector<string>& lines, vector<Person>& people, int& index, int level = 1) {
     Person currentPerson;
     int currentLevel = level;
-    while (getline(infile, line)) {
+
+    while (index < lines.size()) {
+        string line = lines[index];
         istringstream iss(line);
         int personLevel;
         string tag, data;
         iss >> personLevel >> tag;
         getline(iss, data);
-        data = data.substr(1); // Видалення пробілу
-        
+
+        if (!data.empty() && data[0] == ' ') {
+            data = data.substr(1);
+        }
+
         if (personLevel > currentLevel) {
-            infile.seekg(-line.length() - 1, ios_base::cur);
-            parseGTR(infile, currentPerson.children, personLevel);
+            parseGTR(lines, currentPerson.children, index, personLevel);
         } else if (personLevel < currentLevel) {
-            infile.seekg(-line.length() - 1, ios_base::cur);
             break;
         } else {
             if (tag == "NAME") {
@@ -34,12 +38,12 @@ void parseGTR(ifstream& infile, vector<Person>& people, int level = 1) {
             } else if (tag == "BIRTHDATE") {
                 currentPerson.birthdate = data;
             }
+            ++index;
         }
     }
     people.push_back(currentPerson);
 }
 
-// Функція для запису даних у форматі XML
 void writeXML(ofstream& outfile, const vector<Person>& people, int indent = 1) {
     string indentStr(indent, '\t');
     for (const auto& person : people) {
@@ -61,9 +65,16 @@ void convertGTRToXML(const string& inputFileName, const string& outputFileName) 
         return;
     }
 
-    vector<Person> people;
-    parseGTR(infile, people);
+    vector<string> lines;
+    string line;
+    while (getline(infile, line)) {
+        lines.push_back(line);
+    }
     infile.close();
+
+    vector<Person> people;
+    int index = 0;
+    parseGTR(lines, people, index);
 
     ofstream outfile(outputFileName);
     if (!outfile.is_open()) {
